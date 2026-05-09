@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vision Guard — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #080b0f;
+    --surface:  #0e1218;
+    --surface2: #141a22;
+    --border:   rgba(255,255,255,0.06);
+    --border2:  rgba(255,255,255,0.12);
+    --text:     #e8edf2;
+    --muted:    #4a5568;
+    --faint:    #1e2530;
+
+    --cyan:     #00d4ff;
+    --cyan-dim: rgba(0, 212, 255, 0.12);
+    --cyan-glow:rgba(0, 212, 255, 0.06);
+
+    --green:  #00e676;
+    --yellow: #ffd740;
+    --orange: #ff9100;
+    --red:    #ff3d3d;
+
+    --font-display: 'Syne', sans-serif;
+    --font-mono:    'DM Mono', monospace;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  /* ── LAYOUT ─────────────────────────────────────── */
+  .shell {
+    display: grid;
+    grid-template-rows: 48px 1fr;
+    height: 100vh;
+  }
+
+  /* ── HEADER ─────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.75); }
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  .status-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--cyan);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .status-chip .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  /* ── MAIN GRID ───────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 320px 260px;
+    grid-template-rows: 1fr;
+    gap: 1px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  /* ── PANEL BASE ──────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .panel-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 18px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--faint) transparent;
+  }
+
+  /* ── LIVE FEED ───────────────────────────────────── */
+  .feed-panel { grid-column: 1; }
+
+  .feed-wrapper {
+    position: relative;
+    background: #000;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .feed-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .feed-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+
+  /* Corner brackets */
+  .feed-overlay::before, .feed-overlay::after {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    border-color: var(--cyan);
+    border-style: solid;
+    opacity: 0.5;
+  }
+  .feed-overlay::before { top: 12px; left: 12px; border-width: 1px 0 0 1px; }
+  .feed-overlay::after  { bottom: 12px; right: 12px; border-width: 0 1px 1px 0; }
+
+  .score-hud {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(8, 11, 15, 0.85);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 12px 16px;
+    min-width: 200px;
+    backdrop-filter: blur(4px);
+  }
+
+  .score-main {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+    transition: color 0.4s;
+  }
+
+  .score-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .score-bar-track {
+    height: 3px;
+    background: var(--faint);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease, background 0.4s;
+    width: 0%;
+  }
+
+  .score-attrs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+  }
+
+  .attr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--muted);
+    gap: 8px;
+  }
+
+  .attr-val {
+    color: var(--text);
+    font-size: 10px;
+  }
+
+  .alert-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    display: none;
+    animation: flash 1s ease-in-out infinite;
+  }
+
+  @keyframes flash {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+
+  .alert-badge.show { display: block; }
+
+  /* ── EVIDENCE PANEL ──────────────────────────────── */
+  .evidence-panel { grid-column: 2; }
+
+  .evidence-item {
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--surface2);
+    transition: border-color 0.2s;
+  }
+
+  .evidence-item:hover { border-color: var(--border2); }
+
+  .evidence-item img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.9);
+  }
+
+  .evidence-meta {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .evidence-time {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  .evidence-score {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+  }
+
+  .evidence-zone {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 4px 12px;
+    padding-top: 0;
+    border-top: 1px solid var(--border);
+    margin-top: 0;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--muted);
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  .empty-icon {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  /* ── LOG PANEL ───────────────────────────────────── */
+  .log-panel { grid-column: 3; }
+
+  .log-entry {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .log-entry:last-child { border-bottom: none; }
+
+  .log-time {
+    color: var(--muted);
+    flex-shrink: 0;
+    font-size: 10px;
+    padding-top: 1px;
+    letter-spacing: 0.04em;
+  }
+
+  .log-msg { color: var(--text); opacity: 0.75; }
+  .log-msg.alert { color: var(--red); opacity: 1; }
+  .log-msg.warn  { color: var(--yellow); opacity: 1; }
+  .log-msg.info  { color: var(--cyan); opacity: 1; }
+
+  /* ── STATUS COLORS ───────────────────────────────── */
+  .s-peaceful { color: var(--green); }
+  .s-elevated { color: var(--yellow); }
+  .s-warning  { color: var(--orange); }
+  .s-critical { color: var(--red); }
+
+  .bg-peaceful { background: rgba(0,230,118,0.12); color: var(--green); }
+  .bg-elevated { background: rgba(255,215,64,0.12); color: var(--yellow); }
+  .bg-warning  { background: rgba(255,145,0,0.12);  color: var(--orange); }
+  .bg-critical { background: rgba(255,61,61,0.12);  color: var(--red); }
+
+  /* ── SCROLLBAR ───────────────────────────────────── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+
+  /* ── CLOCK ───────────────────────────────────────── */
+  #clock {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── HEADER ──────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      Vision Guard
+    </div>
+    <div class="header-meta">
+      <span id="clock">--:--:--</span>
+      <div class="status-chip">
+        <div class="dot"></div>
+        Secure link active
+      </div>
+    </div>
+  </header>
+
+  <!-- ── MAIN ────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- PANEL 1 — LIVE FEED -->
+    <div class="panel feed-panel">
+      <div class="panel-header">
+        <span class="panel-label">Live monitor — Edge stream</span>
+        <span class="panel-label" id="zone-label" style="color: var(--cyan);">Default Zone</span>
+      </div>
+      <div class="feed-wrapper">
+        <img src="/video_feed" alt="Live camera feed" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22640%22 height=%22480%22%3E%3Crect fill=%22%230e1218%22 width=%22640%22 height=%22480%22/%3E%3Ctext fill=%22%234a5568%22 font-family=%22monospace%22 font-size=%2213%22 x=%22240%22 y=%22245%22%3ENo signal%3C/text%3E%3C/svg%3E'">
+        <div class="feed-overlay"></div>
+
+        <!-- Alert badge -->
+        <div class="alert-badge" id="alert-badge">⚠ Alert</div>
+
+        <!-- Score HUD -->
+        <div class="score-hud">
+          <div class="score-main s-peaceful" id="score-number">0.0</div>
+          <div class="score-label">Behavior score / 100</div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" id="score-bar" style="background: var(--green);"></div>
+          </div>
+          <div class="score-attrs">
+            <div class="attr-row"><span>Density</span><span class="attr-val" id="a-density">—</span></div>
+            <div class="attr-row"><span>Dwell</span><span class="attr-val" id="a-dwell">—</span></div>
+            <div class="attr-row"><span>Entry/Exit</span><span class="attr-val" id="a-entry">—</span></div>
+            <div class="attr-row"><span>Motion</span><span class="attr-val" id="a-motion">—</span></div>
+            <div class="attr-row"><span>Time wt.</span><span class="attr-val" id="a-time">—</span></div>
+            <div class="attr-row"><span>Zone wt.</span><span class="attr-val" id="a-zone">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 2 — FORENSIC EVIDENCE -->
+    <div class="panel evidence-panel">
+      <div class="panel-header">
+        <span class="panel-label">Forensic evidence — Cloud vault</span>
+        <span class="panel-label" id="evidence-count" style="color: var(--muted);">0 events</span>
+      </div>
+      <div class="panel-body" id="evidence-body">
+        <div class="empty-state">
+          <div class="empty-icon">◎</div>
+          <span>Monitoring — no alerts yet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 3 — EVENT LOG -->
+    <div class="panel log-panel">
+      <div class="panel-header">
+        <span class="panel-label">System event log</span>
+      </div>
+      <div class="panel-body" id="log-body">
+        <!-- logs injected here -->
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── CLOCK ──────────────────────────────────────────
+  function tickClock() {
+    const now = new Date();
+    const t = now.toTimeString().split(' ')[0];
+    document.getElementById('clock').textContent = t;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // ── STATUS HELPERS ─────────────────────────────────
+  const STATUS_CLASS = {
+    peaceful: 's-peaceful',
+    elevated: 's-elevated',
+    warning:  's-warning',
+    critical: 's-critical',
+  };
+  const STATUS_BG = {
+    peaceful: 'bg-peaceful',
+    elevated: 'bg-elevated',
+    warning:  'bg-warning',
+    critical: 'bg-critical',
+  };
+  const BAR_COLOR = {
+    peaceful: 'var(--green)',
+    elevated: 'var(--yellow)',
+    warning:  'var(--orange)',
+    critical: 'var(--red)',
+  };
+  const ALERT_BG = {
+    peaceful: '',
+    elevated: 'rgba(255,215,64,0.15)',
+    warning:  'rgba(255,145,0,0.2)',
+    critical: 'rgba(255,61,61,0.2)',
+  };
+
+  function getStatus(score) {
+    if (score >= 75) return 'critical';
+    if (score >= 55) return 'warning';
+    if (score >= 30) return 'elevated';
+    return 'peaceful';
+  }
+
+  // ── STATE ──────────────────────────────────────────
+  let lastEventTime = null;
+  let knownUrls = new Set();
+  let logLines = [];
+  const MAX_LOGS = 60;
+
+  function addLog(msg, type = '') {
+    const now = new Date().toTimeString().split(' ')[0];
+    logLines.unshift({ time: now, msg, type });
+    if (logLines.length > MAX_LOGS) logLines.pop();
+    renderLog();
+  }
+
+  function renderLog() {
+    const body = document.getElementById('log-body');
+    body.innerHTML = logLines.map(l =>
+      `<div class="log-entry">
+        <span class="log-time">${l.time}</span>
+        <span class="log-msg ${l.type}">${l.msg}</span>
+      </div>`
+    ).join('');
+  }
+
+  // Boot log
+  addLog('Edge node connection established', 'info');
+  addLog('YOLOv8n model loaded', 'info');
+  addLog('R3D-18 violence model loaded', 'info');
+  addLog('Behavior engine active — 6 parameters', 'info');
+  addLog('Monitoring started', '');
+
+  // ── SCORE HUD UPDATE ───────────────────────────────
+  function updateScoreHUD(item) {
+    const score  = parseFloat(item.score) || 0;
+    const status = item.status || getStatus(score);
+    const cls    = STATUS_CLASS[status] || 's-peaceful';
+    const bar    = BAR_COLOR[status]    || 'var(--green)';
+
+    const scoreEl  = document.getElementById('score-number');
+    const barEl    = document.getElementById('score-bar');
+    const zoneEl   = document.getElementById('zone-label');
+    const badgeEl  = document.getElementById('alert-badge');
+
+    // Remove old status classes
+    scoreEl.className = 'score-main ' + cls;
+    scoreEl.textContent = score.toFixed(1);
+
+    barEl.style.width      = Math.min(score, 100) + '%';
+    barEl.style.background = bar;
+
+    zoneEl.textContent = item.zone || 'Default Zone';
+
+    // Alert badge
+    if (status === 'critical' || status === 'warning') {
+      badgeEl.textContent = '⚠ ' + status.toUpperCase();
+      badgeEl.className   = 'alert-badge show ' + STATUS_BG[status];
+    } else {
+      badgeEl.className = 'alert-badge';
+    }
+
+    // Attribute sub-scores — server now sends these via form data
+    // Fall back gracefully if absent
+    if (item.crowd_density  != null) document.getElementById('a-density').textContent = parseFloat(item.crowd_density).toFixed(1)  + '/25';
+    if (item.dwell          != null) document.getElementById('a-dwell').textContent   = parseFloat(item.dwell).toFixed(1)          + '/20';
+    if (item.entry_exit     != null) document.getElementById('a-entry').textContent   = parseFloat(item.entry_exit).toFixed(1)     + '/15';
+    if (item.motion         != null) document.getElementById('a-motion').textContent  = parseFloat(item.motion).toFixed(1)         + '/20';
+    if (item.time_weight    != null) document.getElementById('a-time').textContent    = 'x' + parseFloat(item.time_weight).toFixed(2);
+    if (item.zone_weight    != null) document.getElementById('a-zone').textContent    = 'x' + parseFloat(item.zone_weight).toFixed(1);
+  }
+
+  // ── EVIDENCE RENDER ────────────────────────────────
+  function renderEvidence(data) {
+    const body = document.getElementById('evidence-body');
+    const count = document.getElementById('evidence-count');
+
+    if (!data || data.length === 0) {
+      body.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">◎</div>
+        <span>Monitoring — no alerts yet</span>
+      </div>`;
+      count.textContent = '0 events';
+      return;
+    }
+
+    count.textContent = data.length + ' event' + (data.length !== 1 ? 's' : '');
+
+    body.innerHTML = data.map(item => {
+      const status = item.status || getStatus(parseFloat(item.score) || 0);
+      const bgCls  = STATUS_BG[status] || 'bg-peaceful';
+      const scoreDisplay = item.score ? parseFloat(item.score).toFixed(1) : '—';
+
+      // Log new events
+      if (!knownUrls.has(item.url)) {
+        knownUrls.add(item.url);
+        const logType = status === 'critical' ? 'alert' : (status === 'warning' ? 'warn' : '');
+        addLog(`${status.toUpperCase()} — Score ${scoreDisplay} — ${item.zone || 'Default Zone'}`, logType);
+        updateScoreHUD(item);
+      }
+
+      return `<div class="evidence-item">
+        <img src="${item.url}" alt="Evidence frame at ${item.time}" loading="lazy">
+        <div class="evidence-meta">
+          <span class="evidence-time">${item.time}</span>
+          <span class="evidence-score ${bgCls}">${status.toUpperCase()} · ${scoreDisplay}</span>
+        </div>
+        <div class="evidence-zone">${item.zone || 'Default Zone'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── POLL BACKEND ───────────────────────────────────
+  async function poll() {
+    try {
+      const res  = await fetch('/get_history');
+      const data = await res.json();
+      renderEvidence(data);
+      // If we have a latest item, keep HUD live even without alerts
+      if (data.length > 0) updateScoreHUD(data[0]);
+    } catch (e) {
+      // server not reachable — log once
+      if (!window._serverErrLogged) {
+        addLog('Hub unreachable — retrying...', 'alert');
+        window._serverErrLogged = true;
+      }
+    }
+  }
+
+  poll();
+  setInterval(poll, 3000);
+</script>
+</body>
+</html>
